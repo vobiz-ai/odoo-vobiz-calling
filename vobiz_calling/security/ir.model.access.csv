@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_vobiz_call_user,vobiz.call user,model_vobiz_call,base.group_user,1,0,0,0
+access_vobiz_call_system,vobiz.call system,model_vobiz_call,base.group_system,1,1,1,1
+access_vobiz_session_system,vobiz.session system,model_vobiz_session,base.group_system,1,0,0,1
+access_vobiz_room_system,vobiz.room system,model_vobiz_room,base.group_system,1,0,0,1
+access_vobiz_endpoint_system,vobiz.endpoint system,model_vobiz_endpoint,base.group_system,1,1,0,1

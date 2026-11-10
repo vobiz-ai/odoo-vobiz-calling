@@ -1,0 +1,92 @@
+<section class="container" style="padding: 32px 16px 8px;">
+    <div class="row">
+        <div class="col-md-12 text-center">
+            <h2 style="color: #E83C00; font-weight: 600; margin-bottom: 8px;">Vobiz Calling</h2>
+            <h4 style="color: #1F1A17; font-weight: 400; margin-bottom: 24px;">
+                Make and take phone calls in Odoo through your Vobiz account, with every call logged on the contact.
+            </h4>
+            <img src="screenshot_incoming.png" class="img-fluid" alt="An incoming call in Odoo, with Accept and Decline"
+                 style="border: 1px solid #E9D9CC; margin-bottom: 8px;"/>
+        </div>
+    </div>
+</section>
+
+<section class="container" style="padding: 24px 16px;">
+    <h3 style="color: #1F1A17; margin-bottom: 16px;">What it does</h3>
+    <div class="row">
+        <div class="col-md-6" style="margin-bottom: 16px;">
+            <h5 style="color: #E83C00;">A phone in Odoo's top bar</h5>
+            <p>Type a number, pick which of your Vobiz numbers to call from, and click Call. The call keeps going while you move between Odoo screens.</p>
+        </div>
+        <div class="col-md-6" style="margin-bottom: 16px;">
+            <h5 style="color: #E83C00;">Click a number to call it</h5>
+            <p>Click any phone number on a contact, and the phone dials it.</p>
+        </div>
+        <div class="col-md-6" style="margin-bottom: 16px;">
+            <h5 style="color: #E83C00;">Incoming calls in Odoo</h5>
+            <p>A call to your Vobiz number rings every agent who is signed in, with the caller's name when the number belongs to a contact. Accept or Decline: the first agent to accept takes the call.</p>
+        </div>
+        <div class="col-md-6" style="margin-bottom: 16px;">
+            <h5 style="color: #E83C00;">Every call logged</h5>
+            <p>Direction, outcome (answered, missed, declined, not answered), agent and talk time, under Vobiz &gt; Calls and as a note on the contact.</p>
+        </div>
+        <div class="col-md-6" style="margin-bottom: 16px;">
+            <h5 style="color: #E83C00;">Two ways to sign in</h5>
+            <p>With an access token (JWT), on the company's Vobiz account or an agent's own, or as one of the company's SIP endpoints, with its username and password.</p>
+        </div>
+        <div class="col-md-6" style="margin-bottom: 16px;">
+            <h5 style="color: #E83C00;">Built with care for credentials</h5>
+            <p>The Auth Token is stored encrypted and never reaches an agent's browser, and Odoo only accepts call events that Vobiz has signed.</p>
+        </div>
+    </div>
+</section>
+
+<section class="container" style="padding: 24px 16px;">
+    <h3 style="color: #1F1A17; margin-bottom: 16px;">Two ways to sign in</h3>
+    <p>With an access token, on the company's Vobiz account or an agent's own: the Auth Token stays on the server. Or as one of the company's SIP endpoints: its password stays in the browser.</p>
+    <img src="screenshot_signin.png" class="img-fluid" alt="Sign in with an access token or a SIP endpoint" style="border: 1px solid #E9D9CC; margin-bottom: 24px;"/>
+
+    <h3 style="color: #1F1A17; margin-bottom: 16px;">Calling from Odoo</h3>
+    <p>Pick the number to call from, type a number or use the keypad, or click any phone number in Odoo, and call.</p>
+    <img src="screenshot_ready.png" class="img-fluid" alt="The Vobiz phone, ready to call" style="border: 1px solid #E9D9CC; margin-bottom: 24px;"/>
+    <p>On a call: who you are talking to and for how long, with Mute, Hold, a keypad for phone menus, and Hang up.</p>
+    <img src="screenshot_on_call.png" class="img-fluid" alt="A call in progress" style="border: 1px solid #E9D9CC; margin-bottom: 24px;"/>
+
+    <h3 style="color: #1F1A17; margin: 16px 0;">Every call, in one place</h3>
+    <p>Vobiz &gt; Calls lists every call, in and out, with its outcome and talk time.</p>
+    <img src="screenshot_calls.png" class="img-fluid" alt="The list of calls" style="border: 1px solid #E9D9CC; margin-bottom: 24px;"/>
+    <p>Each call is also noted on the contact, so the whole team sees it.</p>
+    <img src="screenshot_contact.png" class="img-fluid" alt="Call notes on a contact" style="border: 1px solid #E9D9CC; margin-bottom: 24px;"/>
+</section>
+
+<section class="container" style="padding: 24px 16px;">
+    <h3 style="color: #1F1A17; margin-bottom: 16px;">What you need</h3>
+    <ul>
+        <li>A Vobiz account (vobiz.ai) with at least one active voice number. Calls are billed by Vobiz.</li>
+        <li>Odoo 18 on Odoo.sh or on your own server, reachable from the internet over HTTPS: Vobiz sends each call's events to this address. The app cannot be installed on Odoo Online.</li>
+        <li>Google Chrome or Microsoft Edge, with a microphone and a headset.</li>
+    </ul>
+
+    <h3 style="color: #1F1A17; margin: 24px 0 16px;">Set it up</h3>
+    <ol>
+        <li>Install the app, then open Settings &gt; Vobiz.</li>
+        <li>Enter your Auth ID and Auth Token. Both are in the Vobiz Console, under API credentials.</li>
+        <li>Tick <b>Allow calls through Vobiz</b>.</li>
+        <li>Check that <b>Public URL for Vobiz</b> is this Odoo's https:// address. Left empty, the web base URL is used.</li>
+        <li>Click <b>Save and check connection</b>. The app creates its application in your Vobiz account and lists your numbers.</li>
+        <li>Pick the <b>Default caller ID</b>. To take that number's calls in Odoo, click <b>Ring Odoo for calls to this number</b>.</li>
+        <li>To let agents sign in as SIP endpoints, click <b>Manage SIP endpoints</b>, then <b>Load from Vobiz</b>, then <b>Use with Odoo</b> on each endpoint they may use.</li>
+        <li>Each agent clicks the phone icon in the top bar, then <b>Sign in</b>, or enters a SIP endpoint's username and password.</li>
+    </ol>
+    <img src="screenshot_settings.png" class="img-fluid" alt="The Vobiz settings" style="border: 1px solid #E9D9CC; margin: 8px 0 24px;"/>
+
+    <h3 style="color: #1F1A17; margin: 24px 0 16px;">Your data</h3>
+    <ul>
+        <li>To make and take calls, this app sends Vobiz the phone numbers dialled and calling in, and receives each call's times and result. Nothing is sent until an administrator ticks <b>Allow calls through Vobiz</b>. Vobiz's privacy policy is at vobiz.ai/legal.</li>
+        <li>The Auth Token is stored encrypted, and only administrators can set it. Agents' browsers sign in with an access token that lasts 15 minutes, or with a SIP endpoint's password, which stays in the browser and is never sent to Odoo.</li>
+        <li>Call logs stay in your Odoo database.</li>
+    </ul>
+
+    <h3 style="color: #1F1A17; margin: 24px 0 16px;">Help</h3>
+    <p>Questions or problems: <a href="mailto:support@vobiz.ai">support@vobiz.ai</a></p>
+</section>

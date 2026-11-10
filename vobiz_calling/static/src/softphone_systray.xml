@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="vobiz_calling.Keypad">
+        <div t-attf-class="o_vobiz_keypad #{pad.small ? 'o_vobiz_keypad_small' : ''}">
+            <t t-foreach="keys" t-as="key" t-key="key[0]">
+                <button type="button" class="o_vobiz_key" t-att-aria-label="key[0]" t-on-click="() => pad.onPress(key[0])">
+                    <span class="o_vobiz_key_digit" t-esc="key[0]"/>
+                    <span t-if="!pad.small" class="o_vobiz_key_letters" t-esc="key[1]"/>
+                </button>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="vobiz_calling.Softphone">
+        <Dropdown position="'bottom-end'" state="dropdown" menuClass="'o_vobiz_menu p-0'">
+            <button class="o_vobiz_toggle" title="Vobiz phone" aria-label="Vobiz phone">
+                <i class="fa fa-lg fa-phone" role="img"/>
+                <span t-attf-class="o_vobiz_badge #{badgeClass}"/>
+            </button>
+            <t t-set-slot="content">
+                <div class="o_vobiz_panel">
+                    <div class="o_vobiz_head">
+                        <img class="o_vobiz_logo" src="/vobiz_calling/static/img/vobiz_logo.png" alt="Vobiz"/>
+                        <span t-attf-class="o_vobiz_pill o_vobiz_pill_#{pill.kind}">
+                            <span class="o_vobiz_dot"/>
+                            <t t-esc="pill.text"/>
+                        </span>
+                    </div>
+                    <div t-if="showStatus" t-attf-class="o_vobiz_status o_vobiz_status_#{state.statusKind}" role="status"
+                         t-esc="state.status"/>
+
+                    <!-- A call ringing in -->
+                    <div t-if="state.phase === 'incoming' or state.phase === 'answering'" class="o_vobiz_call">
+                        <div class="o_vobiz_avatar o_vobiz_avatar_ringing">
+                            <t t-if="initials(state.incoming)" t-esc="initials(state.incoming)"/>
+                            <i t-else="" class="fa fa-phone" role="img" aria-label="Caller"/>
+                        </div>
+                        <div class="o_vobiz_call_label">Incoming call</div>
+                        <div class="o_vobiz_call_name" t-if="state.incoming and state.incoming.name" t-esc="state.incoming.name"/>
+                        <div class="o_vobiz_call_number" t-esc="state.incoming ? state.incoming.number : ''"/>
+                        <div class="o_vobiz_row" t-if="state.phase === 'incoming'">
+                            <button class="o_vobiz_btn o_vobiz_btn_accept" t-on-click="() => this.phone.accept()">
+                                <i class="fa fa-phone me-1"/>Accept
+                            </button>
+                            <button class="o_vobiz_btn o_vobiz_btn_hangup" t-on-click="() => this.phone.decline()">
+                                <i class="fa fa-phone o_vobiz_icon_down me-1"/>Decline
+                            </button>
+                        </div>
+                        <div class="o_vobiz_hint text-center" t-else="">Connecting…</div>
+                    </div>
+
+                    <!-- A call in progress -->
+                    <div t-elif="state.call" class="o_vobiz_call">
+                        <div class="o_vobiz_avatar">
+                            <t t-if="initials(state.call)" t-esc="initials(state.call)"/>
+                            <i t-else="" class="fa fa-user" role="img" aria-label="Contact"/>
+                        </div>
+                        <div class="o_vobiz_call_label">
+                            <t t-if="state.phase === 'in_call' and state.call.held">On hold</t>
+                            <t t-elif="state.phase === 'in_call'">On a call</t>
+                            <t t-elif="state.phase === 'ringing'">Ringing…</t>
+                            <t t-else="">Calling…</t>
+                            <span t-if="callTime" class="o_vobiz_timer" t-esc="callTime"/>
+                        </div>
+                        <div class="o_vobiz_call_name" t-if="state.call.name" t-esc="state.call.name"/>
+                        <div class="o_vobiz_call_number" t-esc="state.call.number"/>
+                        <div class="o_vobiz_controls" t-if="state.phase === 'in_call'">
+                            <button t-attf-class="o_vobiz_ctrl #{state.call.muted ? 'active' : ''}"
+                                    t-att-aria-pressed="state.call.muted ? 'true' : 'false'" t-on-click="() => this.phone.toggleMute()">
+                                <span class="o_vobiz_ctrl_icon">
+                                    <i t-attf-class="fa #{state.call.muted ? 'fa-microphone-slash' : 'fa-microphone'}"/>
+                                </span>
+                                <span t-if="state.call.muted">Unmute</span>
+                                <span t-else="">Mute</span>
+                            </button>
+                            <button t-attf-class="o_vobiz_ctrl #{state.call.held ? 'active' : ''}"
+                                    t-att-aria-pressed="state.call.held ? 'true' : 'false'" t-on-click="() => this.phone.toggleHold()">
+                                <span class="o_vobiz_ctrl_icon">
+                                    <i t-attf-class="fa #{state.call.held ? 'fa-play' : 'fa-pause'}"/>
+                                </span>
+                                <span t-if="state.call.held">Resume</span>
+                                <span t-else="">Hold</span>
+                            </button>
+                            <button t-attf-class="o_vobiz_ctrl #{form.callKeypad ? 'active' : ''}"
+                                    t-att-aria-pressed="form.callKeypad ? 'true' : 'false'" t-on-click="() => this.form.callKeypad = !this.form.callKeypad">
+                                <span class="o_vobiz_ctrl_icon"><i class="fa fa-th"/></span>
+                                <span>Keypad</span>
+                            </button>
+                        </div>
+                        <t t-if="form.callKeypad and state.phase === 'in_call'">
+                            <t t-call="vobiz_calling.Keypad">
+                                <t t-set="pad" t-value="{ small: true, onPress: (key) => this.phone.sendDigit(key) }"/>
+                            </t>
+                        </t>
+                        <button class="o_vobiz_btn o_vobiz_btn_hangup o_vobiz_btn_block" t-on-click="() => this.phone.hangup()">
+                            <i class="fa fa-phone o_vobiz_icon_down me-1"/>Hang up
+                        </button>
+                    </div>
+
+                    <!-- Signed in, no call: the dialler -->
+                    <div t-elif="state.signedIn" class="o_vobiz_dialer">
+                        <label class="o_vobiz_label" for="o_vobiz_caller_id">Calling from</label>
+                        <select id="o_vobiz_caller_id" class="o_vobiz_input" t-on-change="onCallerIdChange">
+                            <t t-foreach="state.numbers" t-as="number" t-key="number">
+                                <option t-att-value="number" t-att-selected="number === state.callerId" t-esc="number"/>
+                            </t>
+                        </select>
+                        <div class="o_vobiz_number">
+                            <input id="o_vobiz_number" type="tel" class="o_vobiz_input o_vobiz_input_number" placeholder="+91XXXXXXXXXX"
+                                   aria-label="Number to call" t-model="form.number" t-on-keydown="onNumberKeydown"/>
+                            <button t-if="form.number" class="o_vobiz_backspace" title="Delete the last digit"
+                                    aria-label="Delete the last digit" t-on-click="backspace">
+                                <i class="fa fa-long-arrow-left"/>
+                            </button>
+                        </div>
+                        <t t-call="vobiz_calling.Keypad">
+                            <t t-set="pad" t-value="{ small: false, onPress: (key) => this.press(key) }"/>
+                        </t>
+                        <button class="o_vobiz_btn o_vobiz_btn_call o_vobiz_btn_block" t-att-disabled="!state.registered or !form.number"
+                                t-on-click="dial">
+                            <i class="fa fa-phone me-1"/>Call
+                        </button>
+                        <div class="o_vobiz_foot">
+                            <span class="o_vobiz_account" t-esc="accountLabel"/>
+                            <a href="#" t-on-click.prevent="() => this.phone.signOut()">Sign out</a>
+                        </div>
+                    </div>
+
+                    <!-- Signed out: two ways in -->
+                    <div t-else="" class="o_vobiz_signin">
+                        <div class="o_vobiz_tabs" role="tablist">
+                            <button type="button" role="tab" t-attf-class="o_vobiz_tab #{form.tab === 'token' ? 'active' : ''}"
+                                    t-att-aria-selected="form.tab === 'token' ? 'true' : 'false'" t-on-click="() => this.form.tab = 'token'">
+                                Access token (JWT)
+                            </button>
+                            <button type="button" role="tab" t-attf-class="o_vobiz_tab #{form.tab === 'sip' ? 'active' : ''}"
+                                    t-att-aria-selected="form.tab === 'sip' ? 'true' : 'false'" t-on-click="() => this.form.tab = 'sip'">
+                                SIP endpoint
+                            </button>
+                        </div>
+
+                        <div t-if="form.tab === 'token'" class="o_vobiz_tabpane" role="tabpanel">
+                            <t t-if="state.companyAccount and !form.ownAccount">
+                                <p class="o_vobiz_hint">
+                                    Use the company's Vobiz account. Odoo gives this browser a short-lived access token;
+                                    the Auth Token stays on the server.
+                                </p>
+                                <button class="o_vobiz_btn o_vobiz_btn_primary o_vobiz_btn_block" t-att-disabled="state.busy"
+                                        t-on-click="signInCompany">Sign in</button>
+                                <a href="#" class="o_vobiz_link" t-on-click.prevent="() => this.form.ownAccount = true">
+                                    Use my own Auth ID and Auth Token
+                                </a>
+                            </t>
+                            <t t-else="">
+                                <p class="o_vobiz_hint">Both are in the Vobiz Console, under API credentials.</p>
+                                <label class="o_vobiz_label" for="o_vobiz_auth_id">Auth ID</label>
+                                <input id="o_vobiz_auth_id" type="text" class="o_vobiz_input" placeholder="MA_XXXXXXXX"
+                                       autocomplete="off" t-model="form.authId"/>
+                                <label class="o_vobiz_label" for="o_vobiz_auth_token">Auth Token</label>
+                                <input id="o_vobiz_auth_token" type="password" class="o_vobiz_input" autocomplete="off"
+                                       t-model="form.authToken"/>
+                                <button class="o_vobiz_btn o_vobiz_btn_primary o_vobiz_btn_block"
+                                        t-att-disabled="state.busy or !form.authId or !form.authToken" t-on-click="signInOwn">Sign in</button>
+                                <a t-if="state.companyAccount" href="#" class="o_vobiz_link"
+                                   t-on-click.prevent="() => this.form.ownAccount = false">Use the company account</a>
+                            </t>
+                        </div>
+
+                        <div t-else="" class="o_vobiz_tabpane" role="tabpanel">
+                            <p class="o_vobiz_hint">
+                                Sign in as one of the company's SIP endpoints. The password stays in this page: Odoo never receives it.
+                            </p>
+                            <label class="o_vobiz_label" for="o_vobiz_sip_user">SIP username</label>
+                            <input id="o_vobiz_sip_user" type="text" class="o_vobiz_input" autocomplete="off"
+                                   t-model="form.sipUsername"/>
+                            <label class="o_vobiz_label" for="o_vobiz_sip_password">Password</label>
+                            <input id="o_vobiz_sip_password" type="password" class="o_vobiz_input" autocomplete="off"
+                                   t-model="form.sipPassword" t-on-keydown="onSipKeydown"/>
+                            <button class="o_vobiz_btn o_vobiz_btn_primary o_vobiz_btn_block"
+                                    t-att-disabled="state.busy or !form.sipUsername or !form.sipPassword" t-on-click="signInSip">Connect</button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </Dropdown>
+    </t>
+
+</templates>

@@ -1,0 +1,4 @@
+# LF everywhere; the vendored JsSIP bundle is kept byte for byte (it is checked by SHA-256).
+* text=auto eol=lf
+*.png binary
+vobiz_calling/static/lib/** -text

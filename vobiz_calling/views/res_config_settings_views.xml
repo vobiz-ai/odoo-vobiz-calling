@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.vobiz_calling</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Vobiz" string="Vobiz" name="vobiz_calling" groups="base.group_system">
+                    <block title="Vobiz account" name="vobiz_account">
+                        <setting string="Account" help="The company's Vobiz account. Agents use it from the phone icon in the top bar; they never see the Auth Token. Find both values in the Vobiz Console, under API credentials.">
+                            <div class="row mt-2">
+                                <label for="vobiz_auth_id" string="Auth ID" class="col-lg-4 o_light_label"/>
+                                <field name="vobiz_auth_id" placeholder="MA_XXXXXXXX"/>
+                            </div>
+                            <div class="row">
+                                <label for="vobiz_auth_token" string="Auth Token" class="col-lg-4 o_light_label"/>
+                                <field name="vobiz_auth_token" password="True" placeholder="Your Vobiz Auth Token"/>
+                            </div>
+                            <field name="vobiz_auth_token_saved" invisible="1"/>
+                            <div class="text-muted" invisible="not vobiz_auth_token_saved">
+                                A token is saved. Leave the box empty to keep it.
+                            </div>
+                            <div class="mt-3 d-flex align-items-start gap-2">
+                                <field name="vobiz_data_consent" nolabel="1"/>
+                                <div>
+                                    <label for="vobiz_data_consent" string="Allow calls through Vobiz" class="o_form_label"/>
+                                    <div class="text-muted small">
+                                        To make and take calls, this Odoo sends Vobiz (vobiz.ai) the phone numbers
+                                        dialled and calling in, and receives each call's times and result.
+                                        <a href="https://www.vobiz.ai/legal/#privacy" target="_blank" rel="noopener">Vobiz privacy policy</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <button name="action_vobiz_check" type="object" string="Save and check connection"
+                                        class="btn-primary"/>
+                            </div>
+                            <field name="vobiz_status_kind" invisible="1"/>
+                            <div class="mt-2 text-muted" invisible="vobiz_status_kind != 'muted'">
+                                <field name="vobiz_status" readonly="1" class="d-inline"/>
+                            </div>
+                            <div class="mt-2 text-warning" invisible="vobiz_status_kind != 'warning'">
+                                <i class="fa fa-exclamation-triangle me-1" role="img" aria-label="Warning"/>
+                                <field name="vobiz_status" readonly="1" class="d-inline"/>
+                            </div>
+                            <div class="mt-2 text-success" invisible="vobiz_status_kind != 'success'">
+                                <i class="fa fa-check me-1" role="img" aria-label="Connected"/>
+                                <field name="vobiz_status" readonly="1" class="d-inline"/>
+                            </div>
+                            <div class="text-muted small mt-1 d-flex flex-wrap gap-1" invisible="not vobiz_checked_on">
+                                <span>Last check:</span>
+                                <field name="vobiz_checked_on" readonly="1"/>
+                            </div>
+                            <div class="text-muted small" invisible="not vobiz_app_id">
+                                Vobiz application: <field name="vobiz_app_id" readonly="1" class="d-inline"/>
+                            </div>
+                        </setting>
+                        <setting string="Default caller ID" help="The number calls go out from, unless an agent picks another. The list holds the account's numbers, as of the last connection check. Its incoming calls can ring Odoo.">
+                            <field name="vobiz_caller_id" placeholder="Click Save and check connection"/>
+                            <div class="mt-2">
+                                <button name="action_vobiz_enable_inbound" type="object" string="Ring Odoo for calls to this number"
+                                        icon="oi-arrow-right" class="btn-link"
+                                        confirm="Calls to this number will ring the agents signed in to Odoo. This moves the number off any other Vobiz application it is on now. Continue?"/>
+                            </div>
+                        </setting>
+                        <setting string="SIP endpoints" help="Agents can also sign in with a SIP endpoint of this account: its username and password, typed in the phone panel and kept only in that page. Choose which endpoints Odoo may use; their calls then go through Odoo.">
+                            <button name="%(vobiz_calling.action_vobiz_endpoints)d" type="action" string="Manage SIP endpoints"
+                                    icon="oi-arrow-right" class="btn-link"/>
+                        </setting>
+                    </block>
+                    <block title="Connection" name="vobiz_connection">
+                        <setting string="Public URL for Vobiz" help="The https:// address Vobiz uses to reach this Odoo. Leave empty to use the web base URL.">
+                            <field name="vobiz_public_url" placeholder="https://odoo.example.com"/>
+                        </setting>
+                        <setting string="Ring time" help="How long an incoming call rings before the caller hears busy. Callers' networks often give up at about 30 seconds.">
+                            <field name="vobiz_ring_seconds" class="o_light_label"/> seconds
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_vobiz_settings" model="ir.actions.act_window">
+        <field name="name">Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline</field>
+        <field name="context">{'module': 'vobiz_calling'}</field>
+    </record>
+</odoo>

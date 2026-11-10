@@ -1,0 +1,442 @@
+// The Vobiz phone in Odoo's top bar, in Vobiz's own look (as in Vobiz's
+// RTC demo): orange for the main action, green to call, red to hang up,
+// light grey keys on white.
+$vobiz-orange: #e85d04;
+$vobiz-orange-light: #f97316;
+$vobiz-orange-tint: #fff4ec;
+$vobiz-green: #16a34a;
+$vobiz-green-light: #22c55e;
+$vobiz-red: #dc2626;
+$vobiz-red-light: #ef4444;
+$vobiz-ink: #111827;
+$vobiz-muted: #6b7280;
+$vobiz-line: #e5e7eb;
+$vobiz-key: #f5f7fa;
+$vobiz-key-hover: #eceff3;
+
+.o_vobiz_toggle {
+    position: relative;
+}
+
+.o_vobiz_badge {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid $o-white;
+}
+
+.o_vobiz_badge_off { background: $gray-400; }
+.o_vobiz_badge_ready { background: $vobiz-green-light; }
+.o_vobiz_badge_busy { background: $vobiz-orange; }
+.o_vobiz_badge_ringing {
+    background: $vobiz-red;
+    animation: o_vobiz_pulse 1s ease-in-out infinite;
+}
+
+@keyframes o_vobiz_pulse {
+    50% { opacity: 0.3; }
+}
+
+.o_vobiz_panel {
+    width: 340px;
+    max-width: calc(100vw - 16px);
+    padding: 16px;
+    color: $vobiz-ink;
+    background: $o-white;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+// -- header: logo and connection pill ----------------------------------
+
+.o_vobiz_head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid $vobiz-line;
+}
+
+.o_vobiz_logo {
+    height: 22px;
+    width: auto;
+}
+
+.o_vobiz_pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid $vobiz-line;
+    background: $vobiz-key;
+    color: $vobiz-muted;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.o_vobiz_dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.o_vobiz_pill_ready { color: $vobiz-green; background: #f0fdf4; border-color: #bbf7d0; }
+.o_vobiz_pill_busy { color: $vobiz-orange; background: $vobiz-orange-tint; border-color: #fed7aa; }
+.o_vobiz_pill_ringing { color: $vobiz-red; background: #fef2f2; border-color: #fecaca; }
+.o_vobiz_pill_wait { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+
+.o_vobiz_status {
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: $vobiz-muted;
+}
+
+.o_vobiz_status_info { color: $vobiz-ink; }
+.o_vobiz_status_warning { color: #b45309; }
+.o_vobiz_status_danger { color: $vobiz-red; }
+
+// -- forms ----------------------------------------------------------------
+
+.o_vobiz_label {
+    display: block;
+    margin: 0 0 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $vobiz-muted;
+}
+
+.o_vobiz_input {
+    display: block;
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid $vobiz-line;
+    border-radius: 8px;
+    background-color: $vobiz-key;
+    color: $vobiz-ink;
+    font-size: 0.9rem;
+
+    &:focus {
+        outline: none;
+        border-color: $vobiz-orange;
+        background-color: $o-white;
+        box-shadow: 0 0 0 3px rgba($vobiz-orange, 0.15);
+    }
+}
+
+select.o_vobiz_input {
+    appearance: none;
+    padding-right: 34px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%236b7280' stroke-width='1.6' d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    cursor: pointer;
+}
+
+.o_vobiz_hint {
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: $vobiz-muted;
+}
+
+.o_vobiz_link {
+    display: block;
+    text-align: center;
+    font-size: 0.8rem;
+    color: $vobiz-orange;
+
+    &:hover { color: darken($vobiz-orange, 8%); }
+}
+
+.o_vobiz_signin,
+.o_vobiz_tabpane,
+.o_vobiz_dialer,
+.o_vobiz_call {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+// -- sign-in tabs ------------------------------------------------------------
+
+.o_vobiz_tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 10px;
+    background: $vobiz-key;
+}
+
+.o_vobiz_tab {
+    padding: 7px 6px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: $vobiz-muted;
+    font-size: 0.8rem;
+    font-weight: 500;
+
+    &.active {
+        background: $o-white;
+        border-color: $vobiz-line;
+        color: $vobiz-ink;
+        font-weight: 600;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06);
+    }
+}
+
+// -- buttons -------------------------------------------------------------------
+
+.o_vobiz_btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 999px;
+    color: $o-white;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: filter 0.15s ease, transform 0.1s ease;
+
+    &:hover:not(:disabled) { filter: brightness(1.05); }
+    &:active:not(:disabled) { transform: scale(0.98); }
+    &:disabled { opacity: 0.45; cursor: not-allowed; }
+    &:focus-visible { outline: 3px solid rgba($vobiz-orange, 0.35); outline-offset: 2px; }
+}
+
+.o_vobiz_btn_block { width: 100%; }
+
+.o_vobiz_btn_primary {
+    border-radius: 8px;
+    background: linear-gradient(135deg, $vobiz-orange, $vobiz-orange-light);
+}
+
+.o_vobiz_btn_call,
+.o_vobiz_btn_accept {
+    background: linear-gradient(135deg, $vobiz-green-light, $vobiz-green);
+}
+
+.o_vobiz_btn_hangup {
+    background: linear-gradient(135deg, $vobiz-red-light, $vobiz-red);
+}
+
+.o_vobiz_icon_down {
+    transform: rotate(135deg);
+}
+
+.o_vobiz_row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+// -- the dialler -----------------------------------------------------------------
+
+.o_vobiz_number {
+    position: relative;
+}
+
+.o_vobiz_input_number {
+    padding-right: 40px;
+    font-size: 1.15rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.o_vobiz_backspace {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: $vobiz-muted;
+
+    &:hover { background: $vobiz-key-hover; color: $vobiz-ink; }
+}
+
+.o_vobiz_keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.o_vobiz_key {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 50px;
+    border: 1px solid $vobiz-line;
+    border-radius: 10px;
+    background: $vobiz-key;
+    color: $vobiz-ink;
+
+    &:hover { background: $vobiz-key-hover; }
+    &:active { background: $vobiz-orange-tint; border-color: #fed7aa; }
+    &:focus-visible { outline: 2px solid $vobiz-orange; outline-offset: 1px; }
+}
+
+.o_vobiz_key_digit {
+    font-size: 1.15rem;
+    font-weight: 600;
+    line-height: 1.1;
+}
+
+.o_vobiz_key_letters {
+    min-height: 0.75rem;
+    font-size: 0.55rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    color: $vobiz-muted;
+}
+
+.o_vobiz_keypad_small .o_vobiz_key {
+    height: 38px;
+}
+
+.o_vobiz_foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid $vobiz-line;
+    font-size: 0.8rem;
+
+    a { color: $vobiz-orange; }
+}
+
+.o_vobiz_account {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: $vobiz-muted;
+}
+
+// -- a call ----------------------------------------------------------------------
+
+.o_vobiz_call {
+    align-items: stretch;
+    text-align: center;
+}
+
+.o_vobiz_avatar {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: $vobiz-orange-tint;
+    color: $vobiz-orange;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.o_vobiz_avatar_ringing {
+    box-shadow: 0 0 0 0 rgba($vobiz-orange, 0.45);
+    animation: o_vobiz_ring 1.4s ease-out infinite;
+}
+
+@keyframes o_vobiz_ring {
+    to { box-shadow: 0 0 0 14px rgba($vobiz-orange, 0); }
+}
+
+.o_vobiz_call_label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $vobiz-muted;
+}
+
+.o_vobiz_timer {
+    margin-left: 6px;
+    color: $vobiz-ink;
+    font-variant-numeric: tabular-nums;
+    text-transform: none;
+}
+
+.o_vobiz_call_name {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.o_vobiz_call_number {
+    font-size: 1.1rem;
+    font-variant-numeric: tabular-nums;
+    color: $vobiz-ink;
+}
+
+.o_vobiz_controls {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.o_vobiz_ctrl {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: $vobiz-muted;
+    font-size: 0.75rem;
+    font-weight: 500;
+
+    .o_vobiz_ctrl_icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 46px;
+        height: 46px;
+        border: 1px solid $vobiz-line;
+        border-radius: 50%;
+        background: $vobiz-key;
+        color: $vobiz-ink;
+        font-size: 1rem;
+    }
+
+    &:hover .o_vobiz_ctrl_icon { background: $vobiz-key-hover; }
+
+    &.active {
+        color: $vobiz-orange;
+
+        .o_vobiz_ctrl_icon {
+            background: $vobiz-orange-tint;
+            border-color: #fed7aa;
+            color: $vobiz-orange;
+        }
+    }
+
+    &:focus-visible .o_vobiz_ctrl_icon { outline: 2px solid $vobiz-orange; outline-offset: 2px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .o_vobiz_badge_ringing,
+    .o_vobiz_avatar_ringing { animation: none; }
+    .o_vobiz_btn { transition: none; }
+}
