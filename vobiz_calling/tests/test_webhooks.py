@@ -3,7 +3,8 @@ import re
 from unittest.mock import patch
 from urllib.parse import parse_qsl, urlsplit
 
-from odoo.exceptions import AccessError
+from odoo.exceptions import AccessError, UserError
+from odoo.modules.neutralize import get_neutralization_queries
 from odoo.tests import HttpCase, new_test_user, tagged
 
 from ..tools import vobiz
@@ -585,3 +586,43 @@ class TestVobizWebhooks(HttpCase):
         self.assertFalse(endpoint.allowed)
         self.assertIn("not a SIP endpoint this Odoo may use",
                       self.sign_in_error(mode="sip", sip_username="agent_desk_01"))
+
+    # -- neutralized copies ----------------------------------------------------
+
+    def test_a_neutralized_copy_cannot_act_for_the_live_database(self):
+        # Odoo.sh staging and development databases, and duplicates or restores
+        # made with "Neutralize", run every module's data/neutralize.sql. A copy
+        # that kept the live Auth Token could point the live numbers at itself.
+        room = self.start_outbound("agent-leg-n1")
+        call = room.call_id
+        other = new_test_user(self.env, login="agent2", password="agent2-password", groups="base.group_user")
+        self.sign_in(login="agent2", password="agent2-password", mode="own",
+                     auth_id="MA_TEST0002", auth_token="own-token")
+        company = self.env.company.sudo()
+        self.assertTrue(company.vobiz_app_id)
+        self.assertTrue(self.session_of(other).auth_token_enc)
+
+        for query in get_neutralization_queries(["vobiz_calling"]):
+            self.env.cr.execute(query)
+        # A copy's own server starts with empty caches; here the same process
+        # still holds the settings it read before the SQL ran.
+        self.env.invalidate_all()
+        self.env.registry.clear_cache()
+
+        # No Auth Token, no consent, no link to the live application, no sign-ins.
+        self.assertFalse(company._vobiz_configured())
+        self.assertEqual(company._vobiz_auth_token(), "")
+        self.assertFalse(company.vobiz_data_consent)
+        self.assertFalse(company.vobiz_app_id or company.vobiz_app_url)
+        self.assertFalse(self.env["ir.config_parameter"].sudo().get_param("vobiz_calling.public_url"))
+        self.assertFalse(self.env["vobiz.session"].sudo().with_context(active_test=False).search([]))
+        self.assertFalse(self.env["vobiz.room"].sudo().search([]))
+        with self.assertRaises(UserError):
+            company._vobiz_client()
+        # What is not a secret stays: the account, its default number, the call history.
+        self.assertEqual((company.vobiz_auth_id, company.vobiz_default_number), (AUTH_ID, OUR_NUMBER))
+        self.assertTrue(call.exists())
+        # Even at the live address, the copy no longer vouches for the live account's webhooks.
+        self.env["ir.config_parameter"].sudo().set_param("vobiz_calling.public_url", PUBLIC)
+        inbound = {"From": CALLER, "To": OUR_NUMBER, "CallUUID": "a-n1", "ParentAuthID": AUTH_ID}
+        self.assertEqual(self.post("/vobiz/answer", inbound).status_code, 403)

@@ -1,6 +1,6 @@
 {
     "name": "Vobiz Calling",
-    "version": "18.0.1.0.0",
+    "version": "18.0.1.0.1",
     "summary": "Make and take Vobiz phone calls in Odoo, with every call logged",
     "description": """
 A softphone in Odoo's top bar, on your Vobiz account: call any number or
