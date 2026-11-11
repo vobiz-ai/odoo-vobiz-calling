@@ -103,6 +103,14 @@ itself after a reload; a SIP endpoint asks for its password again.
 - The browser gets a short-lived access token, never the Auth Token. Webhook
   query strings are never trusted: an outbound room is named by a random,
   unguessable value and everything else is looked up on the server.
+- **Test copies.** When Odoo neutralizes a copy of the database (an Odoo.sh
+  staging or development database, or a duplicate or restore made with
+  **Neutralize**), the copy drops the Vobiz Auth Tokens, the consent, the link
+  to the live application, the Public URL and every sign-in
+  (`data/neutralize.sql`). It cannot take the live numbers' calls. To try calls
+  in a copy, enter credentials there on purpose, ideally from a separate Vobiz
+  test account: **Ring Odoo for calls to this number** in the copy moves that
+  number to the copy.
 
 ## Limitations
 
