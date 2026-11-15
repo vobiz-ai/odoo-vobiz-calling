@@ -348,6 +348,68 @@ class TestVobizWebhooks(HttpCase):
         self.assertEqual(Call._match_partner(CALLER), self.partner)
         self.assertFalse(Call._match_partner("+910000000999"))
 
+    # -- who can use the phone ---------------------------------------------------
+
+    def rpc_error(self, path, params, login, password):
+        """The error a JSON-RPC route returns to this user, as the panel would get it."""
+        self.authenticate(login, password)
+        response = self.url_open(path, data=json.dumps({
+            "jsonrpc": "2.0", "method": "call", "id": 0, "params": params,
+        }), headers={"Content-Type": "application/json"})
+        return response.json()["error"]["data"]
+
+    def test_only_internal_users_can_use_the_phone(self):
+        # A portal user (a customer with a portal login) is logged in, so
+        # auth="user" lets them reach the routes: each one refuses them, and
+        # nothing is signed in, or asked of Vobiz, on their behalf.
+        customer = new_test_user(self.env, login="customer1", password="customer1-password",
+                                 groups="base.group_portal")
+        routes = {
+            "/vobiz/panel/state": {},
+            "/vobiz/panel/sign_in": {"mode": "company"},
+            "/vobiz/panel/sign_out": {},
+            "/vobiz/panel/token": {},
+            "/vobiz/panel/caller_id": {"number": OUR_NUMBER},
+            "/vobiz/panel/check_reach": {},
+        }
+        for path, params in routes.items():
+            error = self.rpc_error(path, params, "customer1", "customer1-password")
+            self.assertEqual(error["name"], "odoo.exceptions.AccessError", path)
+            self.assertIn("Only internal users", error["message"], path)
+        sessions = self.env["vobiz.session"].sudo().with_context(active_test=False)
+        self.assertFalse(sessions.search([("user_id", "=", customer.id)]))
+        self.assertFalse(self.fake.requests, "Vobiz is never asked anything for a portal user")
+        # The model refuses them too, whatever calls it.
+        with self.assertRaises(AccessError):
+            self.env["vobiz.session"].with_user(customer)._sign_in("company")
+
+    def test_a_sign_in_ends_when_its_user_is_archived_or_made_portal(self):
+        portal = self.env.ref("base.group_portal")
+        for login, change in (("leaver", {"active": False}), ("customer2", {"groups_id": [(6, 0, [portal.id])]})):
+            with self.subTest(login=login):
+                user = new_test_user(self.env, login=login, password=f"{login}-password", groups="base.group_user")
+                self.sign_in(login=login, password=f"{login}-password")
+                session = self.session_of(user)
+                self.assertTrue(session._live())
+                user.sudo().write(change)
+                self.assertFalse(session._live())
+                # No longer rung: with nobody else signed in, the caller hears busy.
+                inbound = self.post("/vobiz/answer", {"From": CALLER, "To": OUR_NUMBER, "CallUUID": f"in-{login}",
+                                                      "ParentAuthID": AUTH_ID})
+                self.assertNotIn(session.identity, inbound.text)
+                self.assertIn('<Hangup reason="busy"/>', inbound.text)
+                # Its calls are hung up instead of placed.
+                placed = len([r for r in self.fake.requests if r[1:3] == ("POST", "/Call/")])
+                outbound = self.post("/vobiz/answer", {"From": f"sip:{session.identity}@registrar.vobiz.ai",
+                                                       "To": CALLER, "CallUUID": f"out-{login}",
+                                                       "ParentAuthID": AUTH_ID})
+                self.assertIn("<Hangup/>", outbound.text)
+                self.assertEqual(len([r for r in self.fake.requests if r[1:3] == ("POST", "/Call/")]), placed)
+                # The hourly clean-up ends it, and forgets its token.
+                self.env["vobiz.session"]._cron_expire()
+                self.assertFalse(session.active)
+                self.assertFalse(session.access_token)
+
     # -- setup safeguards (from the live test of 9 Nov) ------------------------
 
     def test_sign_in_needs_the_administrators_consent(self):

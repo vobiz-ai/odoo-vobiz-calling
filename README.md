@@ -129,6 +129,7 @@ The browser then registers as the endpoint, with the password, using SIP digest 
 
 Rules for both:
 
+- Only internal users, meaning employees, can use the phone. Portal and public users are refused. A sign-in stops working as soon as its user is archived or is no longer an internal user.
 - One sign-in per Odoo user. Signing in again, in another tab or browser, ends the previous sign-in.
 - A sign-in lasts 12 hours. An hourly scheduled action ends the expired ones.
 - After a page reload, an access-token sign-in picks up again by itself. A SIP sign-in asks for the password again, because it was never stored.
@@ -280,7 +281,7 @@ odoo-vobiz-calling/
     │   └── description/           the Apps Store page: index.html, icon, banner, screenshots
     └── tests/
         ├── test_tools.py          9 unit tests of tools/vobiz.py
-        └── test_webhooks.py       35 tests of the routes, sign-in, setup and endpoints, against a fake Vobiz
+        └── test_webhooks.py       37 tests of the routes, sign-in, setup and endpoints, against a fake Vobiz
 ```
 
 ## Requirements
@@ -623,7 +624,7 @@ Run these in `vobiz-odoo-local/`.
 
 There are three levels:
 
-1. **Automated tests.** 44 tests that need no Vobiz account and no network. Run them before every commit.
+1. **Automated tests.** 46 tests that need no Vobiz account and no network. Run them before every commit.
 2. **Simulated webhooks.** A script sends this Odoo webhooks signed the way Vobiz signs them, to exercise the call handling without a real call.
 3. **Live calls.** The manual test plan, on a real account through a tunnel.
 
@@ -641,8 +642,8 @@ docker compose run --rm odoo odoo -d vobiz_test -i vobiz_calling --test-enable -
 It takes about a minute. The result is in the last lines (the times vary):
 
 ```text
-... odoo.service.server: 44 post-tests in 30.20s, 8245 queries
-... odoo.tests.result: 0 failed, 0 error(s) of 44 tests when loading database 'vobiz_test'
+... odoo.service.server: 46 post-tests in 31.84s, 9230 queries
+... odoo.tests.result: 0 failed, 0 error(s) of 46 tests when loading database 'vobiz_test'
 ```
 
 | To | Change the command like this |
@@ -655,7 +656,7 @@ It takes about a minute. The result is in the last lines (the times vary):
 **How they work.**
 
 - `tests/test_tools.py` (9 tests) checks `tools/vobiz.py` directly.
-- `tests/test_webhooks.py` (35 tests) is an `HttpCase`. It sends real HTTP requests to the module's routes on a test server, signs webhooks with `vobiz.sign()` exactly as Vobiz does, and signs test users in through `/vobiz/panel/sign_in`.
+- `tests/test_webhooks.py` (37 tests) is an `HttpCase`. It sends real HTTP requests to the module's routes on a test server, signs webhooks with `vobiz.sign()` exactly as Vobiz does, and signs test users in through `/vobiz/panel/sign_in`.
 - Vobiz itself is faked. `FakeVobiz` replaces `VobizClient.request` and answers like the real API, including lists of 20 per page and a `request_uuid` for each placed call. It records every request, so a test can check what Odoo asked Vobiz for. Nothing leaves the computer. Where a test needs it, the self-check that calls the Public URL is patched too.
 - All the data is made up: Auth IDs `MA_TEST0001` and `MA_TEST0002`, numbers from `+910000000001`, Public URL `https://odoo.test`.
 - Each test runs in a transaction that's rolled back. Both files are tagged `post_install` and `-at_install`, so they run once every module is installed.
@@ -669,6 +670,7 @@ It takes about a minute. The result is in the last lines (the times vary):
 | Incoming calls | 3 | Nobody signed in gives busy, **Missed** and a chatter note. Signed-in agents are rung with the right `<Dial>`, then answer, then hang-up gives **Answered** with the agent. Decline gives **Declined**, and running out of ring time gives **Not answered**, both with busy for the caller. |
 | Outgoing calls | 6 | The room and the REST leg from the chosen caller ID, then join, give **Answered**. No answer releases the agent's leg. Hanging up while it rings cancels the customer's leg, once. A customer who answers after the agent left is hung up. A decline releases the agent and logs **Busy**. A caller ID not on the account falls back to the sign-in's number. |
 | Signing in | 6 | The browser never receives the Auth Token, and the JWT's `app` claim is a string. Signing in again ends the previous sign-in. An own account is stored encrypted and forgotten at sign-out, and its webhooks verify with its own token. Refused credentials are explained without echoing them. Only administrators can read the stored token. Contacts match however the number was typed. |
+| Who can use the phone | 2 | A portal user is refused by every `/vobiz/panel/*` route and by the sign-in itself, and Vobiz is never contacted for them. An agent who is archived, or made a portal user, stops being rung at once, their calls are hung up, and the hourly clean-up ends the sign-in and forgets its token. |
 | Setup safeguards | 9 | Consent comes before Vobiz is contacted at all. The Public URL must be `https://`. Vobiz refusing the address is explained. A new Public URL moves and renames the application and signs out own-account agents. A deleted application is made again. The caller ID is picked from the account's numbers. "Connected" shows only after a real check. The panel's reachability check works, and so does `/vobiz/ping`. |
 | Paged lists | 1 | Applications are read page by page, since Vobiz returns 20 per page. |
 | SIP endpoints | 8 | **Load from Vobiz** works the way the list button calls it. Endpoints load, then link. A SIP sign-in takes no access token. The endpoint must still be linked to Odoo. One person at a time can use an endpoint, and **Agent** keeps it for one user. A SIP agent makes and takes calls. Signing in again frees the endpoint's name. **Stop using** signs its agent out. |
@@ -892,6 +894,7 @@ docker compose exec db dropdb -U odoo vobiz_copy
 | Shows *Ringing…* for 20 to 30 seconds after the customer rejected the call | Mobile networks report a rejection late | Expected |
 | Incoming calls don't ring | The number isn't linked to Odoo's application, nobody is signed in and *Ready*, the tab is closed, the agent is on another call, or the Public URL is old | **Ring Odoo for calls to this number**, then sign in. Keep the tab open. |
 | "Sign in to the phone first." | Click-to-call while signed out, or not yet *Ready* | Sign in and wait for *Ready* |
+| "Only internal users can use the Vobiz phone." | The user is a portal or public user, or has been archived | Use an employee's login, or make the user an internal user under **Settings → Users & Companies → Users** |
 | "Finish the current call first." | One call at a time | Hang up first |
 | "Enter the SIP endpoint's password to use the phone in this tab." | A SIP sign-in after a reload | Expected: the password isn't stored |
 | "Vobiz refused this SIP endpoint's username or password." | A wrong password, or the endpoint changed in the Console | Check them in Console → **Voice → Endpoints** |
@@ -995,12 +998,12 @@ The module never deletes anything in the account. To stop using it, link the num
 
 | Route | Type and access | Called by | What it does |
 |---|---|---|---|
-| `/vobiz/panel/state` | JSON-RPC, Odoo login | The panel, when the page loads | Returns the sign-in state, minting a token if needed |
-| `/vobiz/panel/sign_in` | JSON-RPC, Odoo login | The panel | `mode` is `company`, `own` (with `auth_id` and `auth_token`) or `sip` (with `sip_username`) |
-| `/vobiz/panel/sign_out` | JSON-RPC, Odoo login | The panel | Ends the sign-in |
-| `/vobiz/panel/token` | JSON-RPC, Odoo login | The panel: before each token runs out, or every 3 minutes for a SIP endpoint | A fresh token, or `signedIn: false` |
-| `/vobiz/panel/caller_id` | JSON-RPC, Odoo login | The panel | Sets the sign-in's caller ID, which must be one of its numbers |
-| `/vobiz/panel/check_reach` | JSON-RPC, Odoo login | The panel, after Vobiz refused a call | Runs the Public URL self-check |
+| `/vobiz/panel/state` | JSON-RPC, internal users only | The panel, when the page loads | Returns the sign-in state, minting a token if needed |
+| `/vobiz/panel/sign_in` | JSON-RPC, internal users only | The panel | `mode` is `company`, `own` (with `auth_id` and `auth_token`) or `sip` (with `sip_username`) |
+| `/vobiz/panel/sign_out` | JSON-RPC, internal users only | The panel | Ends the sign-in |
+| `/vobiz/panel/token` | JSON-RPC, internal users only | The panel: before each token runs out, or every 3 minutes for a SIP endpoint | A fresh token, or `signedIn: false` |
+| `/vobiz/panel/caller_id` | JSON-RPC, internal users only | The panel | Sets the sign-in's caller ID, which must be one of its numbers |
+| `/vobiz/panel/check_reach` | JSON-RPC, internal users only | The panel, after Vobiz refused a call | Runs the Public URL self-check |
 | `/vobiz/ping?nonce=<32 hex>` | HTTP GET, public | Odoo itself, through its Public URL | Answers an HMAC of the nonce that only this database can compute |
 | `/vobiz/answer` | POST, signed webhook | Vobiz: the application's answer URL | From a browser identity: a room, the customer's leg and `<Conference>`. From a phone: `<Dial>` to every signed-in agent, or busy. Also accepts `Event=Hangup`. |
 | `/vobiz/hangup` | POST, signed webhook | Vobiz: the application's hang-up URL | Settles the call, and cancels the customer's leg if the agent left early |
@@ -1073,6 +1076,7 @@ The module never deletes anything in the account. To stop using it, link the num
 | Who | Calls | Sign-ins and rooms | SIP endpoints | Settings → Vobiz |
 |---|---|---|---|---|
 | Internal user | Read, for their companies | None | None | No |
+| Portal or public user | None | None | None | No |
 | Administrator (*Administration: Settings*) | Read, change, create, delete | Read, delete | Read, change, delete | Yes |
 
 ### Constants worth knowing
@@ -1093,6 +1097,7 @@ The module never deletes anything in the account. To stop using it, link the num
 
 ## Security model
 
+- **Only employees use the phone.** Every `/vobiz/panel/*` route, and signing in itself, refuses anyone who isn't an active internal user. Odoo's `auth="user"` also lets portal users in, so the module checks this itself. A sign-in whose user is archived or made a portal user stops counting at once: it isn't rung, its calls are hung up, and the hourly clean-up ends it.
 - **Webhooks are signed and checked.** Every webhook except the room's wait sound must carry a valid V3 (or V2) signature, made with the Auth Token of the account the call belongs to. That's the company's token, or an own-account agent's while they're signed in. Odoo rebuilds the signed URL from its Public URL. Unsigned or forged requests get `403` and change nothing, and so does a webhook for an account this Odoo holds no token for.
 - **Query strings aren't trusted.** The only value taken from a webhook's query string is the room's name. It's random (`odoo` plus 24 hex characters) and looked up on the server.
 - **Tokens are encrypted at rest.** Auth Tokens are encrypted with Fernet, using a key derived from the database's `database.secret`. The company's token is readable, still encrypted, by administrators only. An agent's own token is dropped at sign-out. A database restored with a new `database.secret` can't decrypt them: enter the token again.
@@ -1164,7 +1169,7 @@ In PowerShell: `Get-FileHash vobiz_calling\static\lib\jssip\jssip.min.js -Algori
 
 ### Releasing a new version
 
-1. Bump `version` in `vobiz_calling/__manifest__.py`. The format is `18.0.<major>.<minor>.<patch>`, and it's `18.0.1.0.1` now.
+1. Bump `version` in `vobiz_calling/__manifest__.py`. The format is `18.0.<major>.<minor>.<patch>`, and it's `18.0.1.0.2` now.
 2. Run the automated tests, and the rows of the manual test plan that the change touches.
 3. Open a pull request against `18.0`, and squash-merge it.
 4. The Odoo Apps Store builds from this branch. The publisher re-scans the repository (apps.odoo.com → **My Repos** → **Scan**) and checks that the store page shows the new version.

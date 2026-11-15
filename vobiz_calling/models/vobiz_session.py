@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 import requests
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError
 from odoo.tools.misc import hmac as odoo_hmac
 
 from ..tools import vobiz
@@ -182,9 +182,21 @@ class VobizSession(models.Model):
         self.ensure_one()
         return vobiz.VobizClient(self.auth_id, self._auth_token())
 
+    @api.model
+    def _may_use_phone(self, user):
+        """Whether ``user`` may use the phone: an active internal user, that is
+        an employee. Portal and public users, and archived users, may not: the
+        phone acts for the company's Vobiz account, so it rings with the
+        company's calls and places calls the company pays for."""
+        return bool(user) and user.active and user._is_internal()
+
     def _live(self):
+        """Whether this sign-in still stands. One whose user has since been
+        archived or made a portal user no longer does, from that moment on."""
         self.ensure_one()
-        return self.active and self.expires_at and self.expires_at > fields.Datetime.now()
+        return bool(
+            self.active and self.expires_at and self.expires_at > fields.Datetime.now()
+            and self._may_use_phone(self.user_id))
 
     @api.model
     def _current(self):
@@ -217,6 +229,8 @@ class VobizSession(models.Model):
     def _sign_in(self, mode, auth_id=None, auth_token=None, sip_username=None):
         """Sign the current user in, ending any sign-in they already had."""
         user = self.env.user
+        if not self._may_use_phone(user):
+            raise AccessError(_("Only internal users can use the Vobiz phone."))
         company = self.env.company.sudo()
         company._vobiz_require_consent()
         self._require_public_url()
@@ -389,8 +403,13 @@ class VobizSession(models.Model):
 
     @api.model
     def _cron_expire(self):
-        expired = self.sudo().search([("active", "=", True), ("expires_at", "<=", fields.Datetime.now())])
-        expired._end()
+        # Expired sign-ins, and those of users who may no longer use the phone
+        # (archived, or no longer internal): already refused everywhere by
+        # _live(), they are ended here so their tokens are forgotten too.
+        now = fields.Datetime.now()
+        ended = self.sudo().search([("active", "=", True)]).filtered(
+            lambda s: s.expires_at <= now or not self._may_use_phone(s.user_id))
+        ended._end()
         old = self.sudo().with_context(active_test=False).search([
             ("active", "=", False), ("write_date", "<", fields.Datetime.now() - timedelta(days=7))])
         old.unlink()
