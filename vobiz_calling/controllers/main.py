@@ -2,7 +2,8 @@ import logging
 import re
 import secrets
 
-from odoo import http
+from odoo import _, http
+from odoo.exceptions import AccessError
 from odoo.http import request
 
 from ..tools import vobiz
@@ -25,8 +26,15 @@ class VobizController(http.Controller):
 
     # -- the softphone (signed-in Odoo users) -----------------------------
 
+    def _check_phone_user(self):
+        """The phone is for internal users (employees). auth="user" also lets
+        portal users in, so every panel route refuses anyone else first."""
+        if not request.env["vobiz.session"]._may_use_phone(request.env.user):
+            raise AccessError(_("Only internal users can use the Vobiz phone."))
+
     @http.route("/vobiz/panel/state", type="json", auth="user")
     def panel_state(self):
+        self._check_phone_user()
         return request.env["vobiz.session"]._current()._panel_state()
 
     @http.route("/vobiz/panel/sign_in", type="json", auth="user")
@@ -34,12 +42,14 @@ class VobizController(http.Controller):
         """Sign in with an access token (mode company or own) or a SIP endpoint
         (mode sip). For an endpoint only its username comes here: its password
         stays in the browser, which registers with it."""
+        self._check_phone_user()
         session = request.env["vobiz.session"]._sign_in(
             mode, auth_id=auth_id, auth_token=auth_token, sip_username=sip_username)
         return session._panel_state()
 
     @http.route("/vobiz/panel/sign_out", type="json", auth="user")
     def panel_sign_out(self):
+        self._check_phone_user()
         sessions = request.env["vobiz.session"]
         sessions._current()._end()
         return sessions.browse()._panel_state()
@@ -48,6 +58,7 @@ class VobizController(http.Controller):
     def panel_token(self, force=False):
         """A fresh access token for the signed-in browser, or signedIn: false when
         the sign-in has ended (signed out, replaced by another tab, or expired)."""
+        self._check_phone_user()
         session = request.env["vobiz.session"]._current()
         if not session:
             return {"signedIn": False}
@@ -58,6 +69,7 @@ class VobizController(http.Controller):
 
     @http.route("/vobiz/panel/caller_id", type="json", auth="user")
     def panel_caller_id(self, number):
+        self._check_phone_user()
         session = request.env["vobiz.session"]._current()
         if session:
             session._set_caller_id(number)
@@ -67,6 +79,7 @@ class VobizController(http.Controller):
     def panel_check_reach(self):
         """Asked by the panel after Vobiz refused a call before it started: does
         this Odoo answer at the address Vobiz calls? For signed-in agents only."""
+        self._check_phone_user()
         Session = request.env["vobiz.session"]
         if not Session._current():
             return {}
