@@ -383,11 +383,19 @@ class TestVobizWebhooks(HttpCase):
         with self.assertRaises(AccessError):
             self.env["vobiz.session"].with_user(customer)._sign_in("company")
 
-    def test_a_sign_in_ends_when_its_user_is_archived_or_made_portal(self):
+    def test_a_sign_in_ends_when_its_user_is_archived_made_portal_or_moved(self):
         portal = self.env.ref("base.group_portal")
-        for login, change in (("leaver", {"active": False}), ("customer2", {"groups_id": [(6, 0, [portal.id])]})):
+        company = self.env.company
+        other = self.env["res.company"].create({"name": "Another company"})
+        changes = (
+            ("leaver", {"active": False}),
+            ("customer2", {"groups_id": [(6, 0, [portal.id])]}),
+            ("mover", {"company_ids": [(6, 0, [other.id])], "company_id": other.id}),
+        )
+        for login, change in changes:
             with self.subTest(login=login):
-                user = new_test_user(self.env, login=login, password=f"{login}-password", groups="base.group_user")
+                user = new_test_user(self.env, login=login, password=f"{login}-password", groups="base.group_user",
+                                     company_id=company.id, company_ids=[(6, 0, [company.id, other.id])])
                 self.sign_in(login=login, password=f"{login}-password")
                 session = self.session_of(user)
                 self.assertTrue(session._live())

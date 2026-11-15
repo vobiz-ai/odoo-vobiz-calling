@@ -96,8 +96,8 @@ itself after a reload; a SIP endpoint asks for its password again.
 ## Security
 
 - Only internal users (employees) can use the phone. Portal users are refused,
-  and a sign-in stops working as soon as its user is archived or is no longer
-  an internal user.
+  and a sign-in stops working as soon as its user is archived, is no longer an
+  internal user, or is removed from the company.
 - Every webhook must carry a valid Vobiz signature (`X-Vobiz-Signature-V3`,
   HMAC-SHA256 over the URL and a nonce) made with the Auth Token of the account
   it belongs to. Unsigned or forged webhooks get `403` and change nothing.

@@ -192,11 +192,12 @@ class VobizSession(models.Model):
 
     def _live(self):
         """Whether this sign-in still stands. One whose user has since been
-        archived or made a portal user no longer does, from that moment on."""
+        archived, made a portal user, or removed from the sign-in's company no
+        longer does, from that moment on."""
         self.ensure_one()
         return bool(
             self.active and self.expires_at and self.expires_at > fields.Datetime.now()
-            and self._may_use_phone(self.user_id))
+            and self._may_use_phone(self.user_id) and self.company_id in self.user_id.company_ids)
 
     @api.model
     def _current(self):
@@ -403,13 +404,11 @@ class VobizSession(models.Model):
 
     @api.model
     def _cron_expire(self):
-        # Expired sign-ins, and those of users who may no longer use the phone
-        # (archived, or no longer internal): already refused everywhere by
-        # _live(), they are ended here so their tokens are forgotten too.
-        now = fields.Datetime.now()
-        ended = self.sudo().search([("active", "=", True)]).filtered(
-            lambda s: s.expires_at <= now or not self._may_use_phone(s.user_id))
-        ended._end()
+        # Expired sign-ins, and those whose user may no longer use the phone for
+        # that company (archived, no longer internal, or removed from it):
+        # already refused everywhere by _live(), they are ended here so their
+        # tokens are forgotten too.
+        self.sudo().search([("active", "=", True)]).filtered(lambda s: not s._live())._end()
         old = self.sudo().with_context(active_test=False).search([
             ("active", "=", False), ("write_date", "<", fields.Datetime.now() - timedelta(days=7))])
         old.unlink()
