@@ -20,7 +20,7 @@ endpoint's password, which stays in the browser and never reaches Odoo.
 
 ## Setup (an administrator, once)
 
-1. Install **Vobiz Calling** from Apps.
+1. In **Apps**, find **Vobiz Calling** and click **Activate**.
 2. Open **Settings → Vobiz** (or **Vobiz → Settings**).
 3. **Public URL for Vobiz:** the https:// address of this Odoo. Leave it empty
    to use the web base URL.
@@ -117,6 +117,6 @@ itself after a reload; a SIP endpoint asks for its password again.
 - Calls ring and are made only in an open, signed-in Odoo tab. The Odoo mobile
   app does not ring.
 - Reloading the page ends a call in progress.
-- No hold, transfer, mute or recording yet.
+- No call transfer or recording yet.
 - Contacts are matched on phone and mobile. Unknown numbers are logged under
   **Vobiz → Calls** without creating a contact.
