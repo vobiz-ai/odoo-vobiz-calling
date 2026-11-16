@@ -148,6 +148,62 @@ class TestVobizWebhooks(HttpCase):
         # Calls logged before this test (a real database may hold some) do not count.
         self.assertFalse(Call.search([("id", "not in", before)]))
 
+    # -- one account's webhooks act on that account's calls only ---------------
+
+    def sign_in_own_account(self, login):
+        """A user signed in with their own Vobiz account, MA_TEST0002. From then
+        on Odoo trusts its token, own-token, for that account's webhooks, so the
+        user can sign webhooks themselves."""
+        new_test_user(self.env, login=login, password=f"{login}-password", groups="base.group_user")
+        self.sign_in(login=login, password=f"{login}-password", mode="own",
+                     auth_id="MA_TEST0002", auth_token="own-token")
+
+    def test_a_call_is_credited_only_to_an_agent_of_its_own_account(self):
+        # Naming a colleague on another account as the one who answered must not
+        # credit the call, or its note on the contact, to them.
+        self.sign_in()
+        colleague = self.session_of(self.agent)
+        self.sign_in_own_account("agent3")
+        self.post("/vobiz/answer", {"From": CALLER, "To": "+910000000555", "CallUUID": "own-2",
+                                    "ParentAuthID": "MA_TEST0002"}, token="own-token")
+        self.post("/vobiz/dial-event", {"Event": "DialAnswer", "DialALegUUID": "own-2",
+                                        "DialBLegTo": f"sip:{colleague.identity}@registrar.vobiz.ai"}, token="own-token")
+        self.post("/vobiz/hangup", {"CallUUID": "own-2", "HangupCause": "NORMAL_CLEARING"}, token="own-token")
+        call = self.env["vobiz.call"].sudo().search([("call_uuid", "=", "own-2")])
+        self.assertFalse(call.user_id)
+        self.assertNotEqual(self.partner.message_ids[:1].author_id, self.agent.partner_id)
+
+    def test_a_webhook_cannot_end_another_accounts_call(self):
+        # A colleague's outbound call is ringing the customer. A hang-up signed for
+        # another account, naming its own call and the colleague's leg, must not
+        # cancel the customer's leg or touch the colleague's room.
+        room = self.start_outbound("agent-leg-8")
+        self.sign_in_own_account("agent4")
+        self.post("/vobiz/answer", {"From": CALLER, "To": "+910000000555", "CallUUID": "own-3",
+                                    "ParentAuthID": "MA_TEST0002"}, token="own-token")
+        before = len(self.fake.requests)
+        self.post("/vobiz/hangup", {"DialALegUUID": "own-3", "CallUUID": "agent-leg-8",
+                                    "HangupCause": "NORMAL_CLEARING"}, token="own-token")
+        self.assertFalse([r for r in self.fake.requests[before:] if r[1] == "DELETE"])
+        self.assertFalse(room.agent_gone)
+        self.assertNotEqual(room.call_id.state, "done")
+
+    def test_a_webhook_cannot_take_over_another_accounts_call_id(self):
+        # Reusing a live call's CallUUID from another account is refused, so
+        # Vobiz's own webhooks for the real call keep working.
+        self.sign_in()
+        self.post("/vobiz/answer", {"From": CALLER, "To": OUR_NUMBER, "CallUUID": "a-9", "ParentAuthID": AUTH_ID})
+        self.sign_in_own_account("agent5")
+        forged = self.post("/vobiz/answer", {"From": CALLER, "To": "+910000000555", "CallUUID": "a-9",
+                                             "ParentAuthID": "MA_TEST0002"}, token="own-token")
+        self.assertEqual(forged.status_code, 403)
+        Call = self.env["vobiz.call"].sudo()
+        self.assertEqual(Call.search_count([("call_uuid", "=", "a-9")]), 1)
+        rang_out = self.post("/vobiz/dial-status", {"CallUUID": "a-9", "DialStatus": "no-answer",
+                                                    "CallStatus": "ringing"})
+        self.assertEqual(rang_out.status_code, 200)
+        self.assertEqual(Call.search([("call_uuid", "=", "a-9")]).outcome, "no_answer")
+
     # -- inbound ---------------------------------------------------------------
 
     def test_inbound_with_nobody_signed_in_is_turned_away_as_busy_and_logged(self):
