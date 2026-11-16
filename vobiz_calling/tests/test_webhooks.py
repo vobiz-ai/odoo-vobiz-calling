@@ -585,6 +585,28 @@ class TestVobizWebhooks(HttpCase):
         self.assertEqual(result["tag"], "display_notification")
         self.assertEqual(len(self.env["vobiz.endpoint"].search([])), 2)
 
+    def test_only_administrators_can_manage_endpoints(self):
+        # The SIP endpoints list's buttons are public methods, so any logged-in
+        # user could call them over RPC: an employee who isn't an administrator,
+        # or a portal user. Each refuses them before touching Vobiz or Odoo.
+        self.env["vobiz.endpoint"].action_load()
+        endpoint = self.env["vobiz.endpoint"].search([("username", "=", "agent_desk_02")])
+        new_test_user(self.env, login="customer3", password="customer3-password", groups="base.group_portal")
+        for login in ("agent1", "customer3"):
+            self.authenticate(login, f"{login}-password")
+            before = len(self.fake.requests)
+            for method, args in (("action_load", [[]]), ("action_use_in_odoo", [[endpoint.id]]),
+                                 ("action_stop_using", [[endpoint.id]])):
+                body = self.url_open(f"/web/dataset/call_button/vobiz.endpoint/{method}", data=json.dumps({
+                    "jsonrpc": "2.0", "method": "call", "id": 0,
+                    "params": {"model": "vobiz.endpoint", "method": method, "args": args, "kwargs": {"context": {}}},
+                }), headers={"Content-Type": "application/json"}).json()
+                self.assertEqual(body["error"]["data"]["name"], "odoo.exceptions.AccessError", (login, method))
+            self.assertEqual(len(self.fake.requests), before, f"{login} reached Vobiz")
+        endpoint.invalidate_recordset()
+        self.assertFalse(endpoint.allowed)
+        self.assertFalse(endpoint.app_id)
+
     def test_endpoints_are_loaded_then_linked_to_odoo(self):
         endpoint = self.allow_endpoint()
         company = self.env.company.sudo()
