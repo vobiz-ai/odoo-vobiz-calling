@@ -281,7 +281,7 @@ odoo-vobiz-calling/
     │   └── description/           the Apps Store page: index.html, icon, banner, screenshots
     └── tests/
         ├── test_tools.py          9 unit tests of tools/vobiz.py
-        └── test_webhooks.py       38 tests of the routes, sign-in, setup and endpoints, against a fake Vobiz
+        └── test_webhooks.py       41 tests of the routes, sign-in, setup and endpoints, against a fake Vobiz
 ```
 
 ## Requirements
@@ -624,7 +624,7 @@ Run these in `vobiz-odoo-local/`.
 
 There are three levels:
 
-1. **Automated tests.** 47 tests that need no Vobiz account and no network. Run them before every commit.
+1. **Automated tests.** 50 tests that need no Vobiz account and no network. Run them before every commit.
 2. **Simulated webhooks.** A script sends this Odoo webhooks signed the way Vobiz signs them, to exercise the call handling without a real call.
 3. **Live calls.** The manual test plan, on a real account through a tunnel.
 
@@ -642,8 +642,8 @@ docker compose run --rm odoo odoo -d vobiz_test -i vobiz_calling --test-enable -
 It takes about a minute. The result is in the last lines (the times vary):
 
 ```text
-... odoo.service.server: 47 post-tests in 29.57s, 9914 queries
-... odoo.tests.result: 0 failed, 0 error(s) of 47 tests when loading database 'vobiz_test'
+... odoo.service.server: 50 post-tests in 43.01s, 11110 queries
+... odoo.tests.result: 0 failed, 0 error(s) of 50 tests when loading database 'vobiz_test'
 ```
 
 | To | Change the command like this |
@@ -656,7 +656,7 @@ It takes about a minute. The result is in the last lines (the times vary):
 **How they work.**
 
 - `tests/test_tools.py` (9 tests) checks `tools/vobiz.py` directly.
-- `tests/test_webhooks.py` (38 tests) is an `HttpCase`. It sends real HTTP requests to the module's routes on a test server, signs webhooks with `vobiz.sign()` exactly as Vobiz does, and signs test users in through `/vobiz/panel/sign_in`.
+- `tests/test_webhooks.py` (41 tests) is an `HttpCase`. It sends real HTTP requests to the module's routes on a test server, signs webhooks with `vobiz.sign()` exactly as Vobiz does, and signs test users in through `/vobiz/panel/sign_in`.
 - Vobiz itself is faked. `FakeVobiz` replaces `VobizClient.request` and answers like the real API, including lists of 20 per page and a `request_uuid` for each placed call. It records every request, so a test can check what Odoo asked Vobiz for. Nothing leaves the computer. Where a test needs it, the self-check that calls the Public URL is patched too.
 - All the data is made up: Auth IDs `MA_TEST0001` and `MA_TEST0002`, numbers from `+910000000001`, Public URL `https://odoo.test`.
 - Each test runs in a transaction that's rolled back. Both files are tagged `post_install` and `-at_install`, so they run once every module is installed.
@@ -666,7 +666,7 @@ It takes about a minute. The result is in the last lines (the times vary):
 | Area | Tests | What is checked |
 |---|---|---|
 | Helpers | 9 | E.164 normalisation (`+91 98765-43210`, `0091…`, `0XXXXXXXXXX`, 10 digits, foreign numbers); SIP user parsing; V3 and V2 signatures, including that another URL or token fails; encryption round trip, and that another database's secret can't decrypt it; XML escaping; a malformed Auth ID is refused; the token never appears in `repr` or an error message; an endpoint's application id, whether Vobiz sends a URI or an object. |
-| Webhook security | 1 | Unsigned webhooks, wrongly signed ones, and ones for an unknown account get `403` and log nothing. |
+| Webhook security | 4 | Unsigned webhooks, wrongly signed ones, and ones for an unknown account get `403` and log nothing. A webhook signed for one account (by an agent signed in with their own account) can't credit a call to an agent of another account, end another account's call, or reuse another account's call ID. |
 | Incoming calls | 3 | Nobody signed in gives busy, **Missed** and a chatter note. Signed-in agents are rung with the right `<Dial>`, then answer, then hang-up gives **Answered** with the agent. Decline gives **Declined**, and running out of ring time gives **Not answered**, both with busy for the caller. |
 | Outgoing calls | 6 | The room and the REST leg from the chosen caller ID, then join, give **Answered**. No answer releases the agent's leg. Hanging up while it rings cancels the customer's leg, once. A customer who answers after the agent left is hung up. A decline releases the agent and logs **Busy**. A caller ID not on the account falls back to the sign-in's number. |
 | Signing in | 6 | The browser never receives the Auth Token, and the JWT's `app` claim is a string. Signing in again ends the previous sign-in. An own account is stored encrypted and forgotten at sign-out, and its webhooks verify with its own token. Refused credentials are explained without echoing them. Only administrators can read the stored token. Contacts match however the number was typed. |
@@ -1098,7 +1098,7 @@ The module never deletes anything in the account. To stop using it, link the num
 ## Security model
 
 - **Only employees use the phone.** Every `/vobiz/panel/*` route, and signing in itself, refuses anyone who isn't an active internal user. Odoo's `auth="user"` also lets portal users in, so the module checks this itself. A sign-in whose user is archived, made a portal user or removed from the company stops counting at once: it isn't rung, its calls are hung up, and the hourly clean-up ends it.
-- **Webhooks are signed and checked.** Every webhook except the room's wait sound must carry a valid V3 (or V2) signature, made with the Auth Token of the account the call belongs to. That's the company's token, or an own-account agent's while they're signed in. Odoo rebuilds the signed URL from its Public URL. Unsigned or forged requests get `403` and change nothing, and so does a webhook for an account this Odoo holds no token for.
+- **Webhooks are signed and checked.** Every webhook except the room's wait sound must carry a valid V3 (or V2) signature, made with the Auth Token of the account the call belongs to. That's the company's token, or an own-account agent's while they're signed in. Odoo rebuilds the signed URL from its Public URL. Unsigned or forged requests get `403` and change nothing, and so does a webhook for an account this Odoo holds no token for. A webhook signed for one account acts only on that account's calls. An agent signed in with their own account holds that account's token, so could sign webhooks, but can't credit a call to an agent of another account, end another account's call, or reuse another account's call ID.
 - **Query strings aren't trusted.** The only value taken from a webhook's query string is the room's name. It's random (`odoo` plus 24 hex characters) and looked up on the server.
 - **Tokens are encrypted at rest.** Auth Tokens are encrypted with Fernet, using a key derived from the database's `database.secret`. The company's token is readable, still encrypted, by administrators only. An agent's own token is dropped at sign-out. A database restored with a new `database.secret` can't decrypt them: enter the token again.
 - **The browser never gets an Auth Token.** It gets access tokens that last about 15 minutes, short because Vobiz can't revoke them. Or it registers with a SIP endpoint's password, which the agent typed and which never leaves the page.

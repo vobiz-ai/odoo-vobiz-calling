@@ -151,6 +151,8 @@ class VobizController(http.Controller):
         if not session:
             _logger.info("Vobiz outbound from %s, which no signed-in agent holds: hung up", identity)
             return self._xml("<Hangup/>")
+        if self._uuid_taken(p.get("CallUUID"), session.auth_id):
+            return self._forbidden()
         destination = vobiz.to_e164(p.get("To"))
         if not destination:
             return self._xml("<Speak>That number cannot be dialled.</Speak><Hangup/>")
@@ -207,6 +209,8 @@ class VobizController(http.Controller):
         if not auth_id:
             auth_id, company = Session._account_for_number(did)
         if not self._verified("/vobiz/answer", auth_id):
+            return self._forbidden()
+        if self._uuid_taken(p.get("CallUUID"), auth_id):
             return self._forbidden()
         sessions = Session._ringing_sessions(auth_id)
         if not company:
@@ -279,6 +283,11 @@ class VobizController(http.Controller):
         if call and answered and call.state != "done":
             Session = request.env["vobiz.session"]
             winner = Session._for_identity(vobiz.sip_user(p.get("DialBLegTo")))
+            if winner and winner.auth_id != call.auth_id:
+                # Only a sign-in on the call's own account can take it. An agent
+                # signed in with their own account holds that account's token, so
+                # could sign this webhook and name a colleague here.
+                winner = Session.browse()
             call._answered(user=winner.user_id or None)
             for session in Session._ringing_sessions(call.auth_id):
                 if session != winner:
@@ -297,6 +306,10 @@ class VobizController(http.Controller):
             [("agent_call_uuid", "=", p.get("CallUUID") or "")], limit=1) if p.get("CallUUID") else None
         if room and not call:
             call = room.call_id
+        elif room and room.call_id != call:
+            # The two ids name different calls, and the signature is checked
+            # against one call's account only: leave the other call's room alone.
+            room = None
         if not self._verified(path, self._auth_id_of(call, p)):
             return self._forbidden()
         if room:
@@ -395,3 +408,10 @@ class VobizController(http.Controller):
 
     def _auth_id_of(self, call, p):
         return (call.sudo().auth_id if call else None) or p.get("ParentAuthID")
+
+    def _uuid_taken(self, uuid, auth_id):
+        """Whether a call of another account already has this CallUUID. Vobiz's
+        ids are unique, so only a forged webhook would reuse one: Vobiz's own
+        webhooks for that call would then be checked against the wrong account."""
+        return bool(uuid) and bool(request.env["vobiz.call"].sudo().search_count(
+            [("call_uuid", "=", uuid), ("auth_id", "!=", auth_id)], limit=1))
