@@ -69,11 +69,18 @@ class VobizEndpoint(models.Model):
     def _error(self, exc):
         return UserError(self.env["vobiz.session"]._error_text(exc))
 
+    def _check_manager(self):
+        """Only administrators manage SIP endpoints. These buttons are public
+        methods, which Odoo lets any logged-in user call over RPC, and they act
+        with sudo(): so they check the user's own rights on the records first."""
+        self.check_access("write")
+
     def action_load(self):
         """Read the company account's endpoints from Vobiz, and what each is linked to.
 
         A list-header button: the web client calls it on the selected rows,
         usually none, so it takes a recordset (empty or not) and ignores it."""
+        self._check_manager()
         company = self.env.company.sudo()
         try:
             found = company._vobiz_client().endpoints()
@@ -95,6 +102,7 @@ class VobizEndpoint(models.Model):
 
     def action_use_in_odoo(self):
         """Link these endpoints to Odoo's application, and let agents sign in with them."""
+        self._check_manager()
         for endpoint in self.sudo():
             company = endpoint.company_id
             company._vobiz_require_consent()
@@ -114,6 +122,7 @@ class VobizEndpoint(models.Model):
     def action_stop_using(self):
         """Agents can no longer sign in with these endpoints. Vobiz keeps sending
         their calls to Odoo's application until they are linked elsewhere."""
+        self._check_manager()
         self.sudo().write({"allowed": False})
         self._stop_sessions(_("Signed out: an administrator stopped this SIP endpoint's use in Odoo."))
         return self._notify(_("Agents can no longer sign in with %s.", ", ".join(self.mapped("username"))))

@@ -281,7 +281,7 @@ odoo-vobiz-calling/
     │   └── description/           the Apps Store page: index.html, icon, banner, screenshots
     └── tests/
         ├── test_tools.py          9 unit tests of tools/vobiz.py
-        └── test_webhooks.py       37 tests of the routes, sign-in, setup and endpoints, against a fake Vobiz
+        └── test_webhooks.py       38 tests of the routes, sign-in, setup and endpoints, against a fake Vobiz
 ```
 
 ## Requirements
@@ -624,7 +624,7 @@ Run these in `vobiz-odoo-local/`.
 
 There are three levels:
 
-1. **Automated tests.** 46 tests that need no Vobiz account and no network. Run them before every commit.
+1. **Automated tests.** 47 tests that need no Vobiz account and no network. Run them before every commit.
 2. **Simulated webhooks.** A script sends this Odoo webhooks signed the way Vobiz signs them, to exercise the call handling without a real call.
 3. **Live calls.** The manual test plan, on a real account through a tunnel.
 
@@ -642,8 +642,8 @@ docker compose run --rm odoo odoo -d vobiz_test -i vobiz_calling --test-enable -
 It takes about a minute. The result is in the last lines (the times vary):
 
 ```text
-... odoo.service.server: 46 post-tests in 31.84s, 9230 queries
-... odoo.tests.result: 0 failed, 0 error(s) of 46 tests when loading database 'vobiz_test'
+... odoo.service.server: 47 post-tests in 29.57s, 9914 queries
+... odoo.tests.result: 0 failed, 0 error(s) of 47 tests when loading database 'vobiz_test'
 ```
 
 | To | Change the command like this |
@@ -656,7 +656,7 @@ It takes about a minute. The result is in the last lines (the times vary):
 **How they work.**
 
 - `tests/test_tools.py` (9 tests) checks `tools/vobiz.py` directly.
-- `tests/test_webhooks.py` (37 tests) is an `HttpCase`. It sends real HTTP requests to the module's routes on a test server, signs webhooks with `vobiz.sign()` exactly as Vobiz does, and signs test users in through `/vobiz/panel/sign_in`.
+- `tests/test_webhooks.py` (38 tests) is an `HttpCase`. It sends real HTTP requests to the module's routes on a test server, signs webhooks with `vobiz.sign()` exactly as Vobiz does, and signs test users in through `/vobiz/panel/sign_in`.
 - Vobiz itself is faked. `FakeVobiz` replaces `VobizClient.request` and answers like the real API, including lists of 20 per page and a `request_uuid` for each placed call. It records every request, so a test can check what Odoo asked Vobiz for. Nothing leaves the computer. Where a test needs it, the self-check that calls the Public URL is patched too.
 - All the data is made up: Auth IDs `MA_TEST0001` and `MA_TEST0002`, numbers from `+910000000001`, Public URL `https://odoo.test`.
 - Each test runs in a transaction that's rolled back. Both files are tagged `post_install` and `-at_install`, so they run once every module is installed.
@@ -673,7 +673,7 @@ It takes about a minute. The result is in the last lines (the times vary):
 | Who can use the phone | 2 | A portal user is refused by every `/vobiz/panel/*` route and by the sign-in itself, and Vobiz is never contacted for them. An agent who is archived, made a portal user, or removed from the company stops being rung at once, their calls are hung up, and the hourly clean-up ends the sign-in and forgets its token. |
 | Setup safeguards | 9 | Consent comes before Vobiz is contacted at all. The Public URL must be `https://`. Vobiz refusing the address is explained. A new Public URL moves and renames the application and signs out own-account agents. A deleted application is made again. The caller ID is picked from the account's numbers. "Connected" shows only after a real check. The panel's reachability check works, and so does `/vobiz/ping`. |
 | Paged lists | 1 | Applications are read page by page, since Vobiz returns 20 per page. |
-| SIP endpoints | 8 | **Load from Vobiz** works the way the list button calls it. Endpoints load, then link. A SIP sign-in takes no access token. The endpoint must still be linked to Odoo. One person at a time can use an endpoint, and **Agent** keeps it for one user. A SIP agent makes and takes calls. Signing in again frees the endpoint's name. **Stop using** signs its agent out. |
+| SIP endpoints | 9 | Only administrators can run the list's buttons, even by calling them directly over RPC: an employee or a portal user is refused before Vobiz is contacted. **Load from Vobiz** works the way the list button calls it. Endpoints load, then link. A SIP sign-in takes no access token. The endpoint must still be linked to Odoo. One person at a time can use an endpoint, and **Agent** keeps it for one user. A SIP agent makes and takes calls. Signing in again frees the endpoint's name. **Stop using** signs its agent out. |
 | Test copies | 1 | `data/neutralize.sql` drops the token, the consent, the application link, the Public URL and every sign-in. It keeps the call history, and the copy refuses the live account's webhooks. |
 
 **What they don't cover:** the browser side (the panel, JsSIP, audio) and Vobiz's real behaviour. That's what the next two levels are for.
