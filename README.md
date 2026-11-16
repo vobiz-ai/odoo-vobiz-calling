@@ -125,7 +125,7 @@ An `own` sign-in keeps the agent's Auth Token, encrypted, on the sign-in record 
 - it isn't kept for another user, or in use by someone else right now;
 - Vobiz still sends its calls to Odoo's application (`GET /Endpoint/{id}/`).
 
-The browser then registers as the endpoint, with the password, using SIP digest authentication. The endpoint's calls are placed, and their webhooks checked, with the company's credentials.
+The browser then registers as the endpoint, with the password, using SIP digest authentication. Odoo never sees or checks the password: Vobiz checks it when the browser registers. The endpoint's calls are placed, and their webhooks checked, with the company's credentials.
 
 Rules for both:
 
@@ -544,7 +544,7 @@ Leave **Application** on **None**.
 |---|---|---|
 | **Auth ID** | `MA_XXXXXXXX` | The company's Vobiz account. |
 | **Auth Token** | The token | It's stored encrypted and never shown again. Later, leave the box empty to keep the saved one. |
-| **Allow calls through Vobiz** | Ticked | The data opt-in. Until it's ticked, Odoo sends Vobiz nothing and nobody can sign in to the phone. |
+| **Allow calls through Vobiz** | Ticked | The data opt-in. Until it's ticked, the connection check and every sign-in to the phone are refused, so no calls go through Vobiz. |
 | **Public URL for Vobiz** (under *Connection*) | The tunnel address, for example `https://some-random-words.trycloudflare.com` | Where Vobiz sends the webhooks. It must start with `https://`. Left empty, Odoo uses its web base URL, which follows whatever address an administrator last logged in from, so set it explicitly. |
 | **Ring time** | 25 (the default) | How many seconds an incoming call rings before the caller hears busy (5 to 120). Many callers' networks give up at about 30. |
 
@@ -805,7 +805,7 @@ Before you start, steps 1 to 5 should be done: Settings shows *Connected*, and t
 | S2 | SIP endpoint | After step 4.6: panel → **SIP endpoint** tab → username and password → **Connect**. Make a call and take one. | *Ready*. The footer says "SIP endpoint · <username>". |
 | S3 | Wrong SIP password | Connect with a wrong password. | "Vobiz refused this SIP endpoint's username or password." You stay signed out. |
 | S4 | Reload | Reload the page while signed in and not on a call. | Access token: back to *Ready* by itself. SIP endpoint: "Enter the SIP endpoint's password to use the phone in this tab." |
-| S5 | A second tab | Sign in again in another tab. | The new tab works. The old one stops at its next check, within about 13 minutes (3 minutes for a SIP endpoint), saying "Signed out: you signed in again somewhere else…". |
+| S5 | A second tab | Sign in again in another tab. | The new tab works. With an access token, the old tab is no longer rung and Odoo hangs up any call it places, but it may not say so: at its next token renewal (within about 13 minutes) it can show "The phone could not connect: …". With a different SIP endpoint, the old tab stops within 3 minutes, saying "Signed out: you signed in again somewhere else…". With the same SIP endpoint in both tabs, both stay registered as that endpoint and Odoo can't tell them apart. Close the old tab. |
 | S6 | Endpoint stopped | An administrator clicks **Stop using** on the endpoint an agent is using. | The agent's panel says at once: "Signed out: an administrator stopped this SIP endpoint's use in Odoo." |
 | S7 | Public URL changed | Restart the tunnel, put the new address in **Public URL for Vobiz**, and click **Save and check connection**. | Company and SIP-endpoint agents stay signed in. Own-account agents are signed out ("Signed out: this Odoo's address for Vobiz changed. Sign in again."). The Console shows the application renamed `Odoo-Calling (<new host>)`. |
 | S8 | Consent removed | Untick **Allow calls through Vobiz**, **Save**, then try to sign in. | "Calls through Vobiz are not allowed yet for <company>…". Agents already signed in stay signed in until they sign out or the sign-in expires. |
@@ -847,7 +847,7 @@ docker compose exec db dropdb -U odoo vobiz_copy
   | `Vobiz sign-in refused for user … on …: …` | Why a sign-in failed |
 
   Each webhook's arrival also shows as a request line, such as `"POST /vobiz/answer HTTP/1.1" 200`.
-- **The browser's console** (F12). The panel logs warnings that start with `[Vobiz]`. To see every SIP message, run `localStorage.debug = 'JsSIP:*'` in the console and reload. To stop, run `localStorage.removeItem('debug')`.
+- **The browser's console** (F12). The panel logs warnings that start with `[Vobiz]`. To see every SIP message, run `localStorage.debug = 'JsSIP:*'` in the console and reload. To stop, run `localStorage.removeItem('debug')`. That log includes the agent's access token in every REGISTER and INVITE (the `X-Vobiz-Jwt` header), and the token can be used for about 15 minutes. Don't paste the log anywhere, and turn logging off when you're done.
 - **Vobiz → Calls** in Odoo. With developer mode on, each call's form also shows its **Vobiz call UUID**.
 - **The Vobiz Console** → **Voice → Logs → Calls**: every call leg with its hang-up cause. Search there by the call UUID.
 - **The contact's chatter**, for the *Vobiz call* notes.
@@ -972,9 +972,9 @@ For nginx, use the configuration in Odoo's [deployment guide](https://www.odoo.c
 
 | Field or button | Stored in | Notes |
 |---|---|---|
-| **Auth ID** | `res.company.vobiz_auth_id` | Administrators only. Changing it signs out the agents using the company account with an access token, and clears the list of numbers. |
+| **Auth ID** | `res.company.vobiz_auth_id` | Only administrators can see it in Settings or change it. It isn't a secret: agents see it in the panel's footer. Changing it signs out the agents using the company account with an access token, and clears the list of numbers. |
 | **Auth Token** | `res.company.vobiz_auth_token_enc`, encrypted | Write-only: the form's field is cleared on save and never reads back. A new token makes Odoo look up its application again. |
-| **Allow calls through Vobiz** | `res.company.vobiz_data_consent` | Required before anything is sent to Vobiz |
+| **Allow calls through Vobiz** | `res.company.vobiz_data_consent` | Required before the connection check, **Ring Odoo for calls to this number**, **Use with Odoo** and any sign-in to the phone |
 | **Save and check connection** | | See [step 4.3](#step-4-connect-odoo-to-vobiz). If the Public URL is empty and the web base URL is `https://`, it pins that address as the Public URL. |
 | **Default caller ID** | `res.company.vobiz_default_number` | Chosen from `vobiz_numbers`, the account's numbers at the last check. A new sign-in starts on it, unless the agent picked another number during their previous sign-in. |
 | **Ring Odoo for calls to this number** | | Links the default number to Odoo's application, moving it off any other |
@@ -1100,10 +1100,10 @@ The module never deletes anything in the account. To stop using it, link the num
 - **Only employees use the phone.** Every `/vobiz/panel/*` route, and signing in itself, refuses anyone who isn't an active internal user. Odoo's `auth="user"` also lets portal users in, so the module checks this itself. A sign-in whose user is archived, made a portal user or removed from the company stops counting at once: it isn't rung, its calls are hung up, and the hourly clean-up ends it.
 - **Webhooks are signed and checked.** Every webhook except the room's wait sound must carry a valid V3 (or V2) signature, made with the Auth Token of the account the call belongs to. That's the company's token, or an own-account agent's while they're signed in. Odoo rebuilds the signed URL from its Public URL. Unsigned or forged requests get `403` and change nothing, and so does a webhook for an account this Odoo holds no token for. A webhook signed for one account acts only on that account's calls. An agent signed in with their own account holds that account's token, so could sign webhooks, but can't credit a call to an agent of another account, end another account's call, or reuse another account's call ID.
 - **Query strings aren't trusted.** The only value taken from a webhook's query string is the room's name. It's random (`odoo` plus 24 hex characters) and looked up on the server.
-- **Tokens are encrypted at rest.** Auth Tokens are encrypted with Fernet, using a key derived from the database's `database.secret`. The company's token is readable, still encrypted, by administrators only. An agent's own token is dropped at sign-out. A database restored with a new `database.secret` can't decrypt them: enter the token again.
+- **Tokens are encrypted at rest.** Auth Tokens are encrypted with Fernet, using a key derived from the database's `database.secret`. The company's token is readable, still encrypted, by administrators only. An agent's own token is dropped at sign-out. A database restored with a new `database.secret` can't decrypt them: enter the token again. The key is kept in the same database, so this protects a token that leaks on its own, not one taken together with the whole database or by an administrator.
 - **The browser never gets an Auth Token.** It gets access tokens that last about 15 minutes, short because Vobiz can't revoke them. Or it registers with a SIP endpoint's password, which the agent typed and which never leaves the page.
 - **Secrets stay out of logs and errors.** `VobizClient` never puts the token in a URL, in its `repr`, in a log line or in an error message. Vobiz's error text is shortened, and any echo of the token is masked.
-- **Data is sent only after an opt-in.** Nothing is sent to Vobiz until an administrator ticks **Allow calls through Vobiz**. What's sent is the numbers dialled and calling in. What comes back is each call's times and result.
+- **Calls need an opt-in.** Until an administrator ticks **Allow calls through Vobiz**, the connection check, **Ring Odoo for calls to this number**, **Use with Odoo** and every sign-in are refused, so no calls go through Vobiz. Unticking it later stops new sign-ins, but agents already signed in keep their sign-in until they sign out or it expires. For calls, what's sent is the numbers dialled and calling in. What comes back is each call's times and result.
 - **The self-check can't be misused.** `/vobiz/ping` answers an HMAC in a scope that's used for nothing else, so its answers can't sign anything.
 - **Test copies can't act for the live database.** When Odoo neutralizes a copy (Odoo.sh staging and development builds, or a duplicate or restore with *Neutralize*), `data/neutralize.sql` drops the Auth Token, the consent, the application link, the Public URL, and every sign-in and room. The copy keeps the Auth ID, the numbers and the call history, but can't act for the live account. To try calls in a copy, enter credentials there on purpose, ideally from a separate test account: **Ring Odoo for calls to this number** in the copy moves that number to the copy.
 
@@ -1153,7 +1153,7 @@ When the code calls a Vobiz endpoint the fake doesn't know, extend `FakeVobiz.re
 
 ### The bundled JsSIP
 
-`static/lib/jssip/jssip.min.js` is JsSIP 3.10.1, under the MIT licence. Its SHA-256 is `d3950b027ecb7fb565aa056539047aa60b2f61e26177927ba2ef58618594aa70`:
+`static/lib/jssip/jssip.min.js` is a single-file browser bundle of JsSIP 3.10.1 that defines the global `JsSIP`, under the MIT licence. It was bundled with esbuild, and isn't the file from JsSIP's own `dist/` folder. Its SHA-256 is `d3950b027ecb7fb565aa056539047aa60b2f61e26177927ba2ef58618594aa70`:
 
 ```bash
 sha256sum vobiz_calling/static/lib/jssip/jssip.min.js
@@ -1163,7 +1163,7 @@ In PowerShell: `Get-FileHash vobiz_calling\static\lib\jssip\jssip.min.js -Algori
 
 `.gitattributes` keeps the file byte for byte (`-text`). It stays bundled because Apps Store modules must not download code. To upgrade it:
 
-1. Replace the file with the official JsSIP build.
+1. Bundle the new JsSIP version the same way, into one file that defines the global `JsSIP`.
 2. Put the new hash in this README, and keep its `LICENSE`.
 3. Test signing in, both call directions, hold and tones on live calls.
 

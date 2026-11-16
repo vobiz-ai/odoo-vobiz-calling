@@ -101,8 +101,10 @@ itself after a reload; a SIP endpoint asks for its password again.
 - Every webhook must carry a valid Vobiz signature (`X-Vobiz-Signature-V3`,
   HMAC-SHA256 over the URL and a nonce) made with the Auth Token of the account
   it belongs to. Unsigned or forged webhooks get `403` and change nothing.
-- Auth Tokens are encrypted with a key derived from the database's secret, and
-  readable only by administrators (company) or not at all (agents' own).
+- Auth Tokens are encrypted with a key derived from the database's secret. Only
+  administrators can read them, still encrypted, and an agent's own token is
+  dropped at sign-out. The key is in the same database, so an administrator,
+  who can read that secret, could decrypt them.
 - The browser gets a short-lived access token, never the Auth Token. Webhook
   query strings are never trusted: an outbound room is named by a random,
   unguessable value and everything else is looked up on the server.
